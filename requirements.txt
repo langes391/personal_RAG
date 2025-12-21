@@ -1,0 +1,11 @@
+streamlit
+PyPDF2
+python-docx
+langchain
+langchain-community
+chromadb
+openai
+pytest
+python-dotenv
+tiktoken
+numpy
