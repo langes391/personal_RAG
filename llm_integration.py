@@ -36,17 +36,17 @@ class LLMIntegration:
             logger.warning("未设置OPENAI_API_KEY，将使用本地回退机制")
             self.client = None
     
-    def generate_answer(self, query, context, max_retries=None):
-        """根据查询和上下文生成答案，支持重试机制"""
+    def generate_answer(self, query, context, chat_history=None, max_retries=None):
+        """根据查询、上下文和对话历史生成答案，支持重试机制和多轮对话"""
         # 使用配置文件中的重试次数，或者传入的重试次数
         retry_count = max_retries if max_retries is not None else MAX_RETRIES
         
-        # 构建提示词
-        prompt = self._build_prompt(query, context)
+        # 构建提示词和消息列表
+        messages = self._build_messages(query, context, chat_history)
         
         # 如果没有DeepSeek客户端，使用回退机制
         if not self.client and self.use_fallback:
-            return self._fallback_generate_answer(query, context)
+            return self._fallback_generate_answer(query, context, chat_history)
         
         # 尝试调用DeepSeek API，支持重试
         for attempt in range(retry_count + 1):
@@ -56,10 +56,7 @@ class LLMIntegration:
                 # 调用DeepSeek API
                 response = self.client.chat.completions.create(
                     model=LLM_MODEL,
-                    messages=[
-                        {"role": "system", "content": "你是一个知识问答助手，根据提供的上下文回答用户的问题。"},
-                        {"role": "user", "content": prompt}
-                    ],
+                    messages=messages,
                     temperature=TEMPERATURE,
                     max_tokens=MAX_TOKENS
                 )
@@ -85,7 +82,7 @@ class LLMIntegration:
                     return f"发生错误: {str(e)}"
                 time.sleep(1)
     
-    def _fallback_generate_answer(self, query, context):
+    def _fallback_generate_answer(self, query, context, chat_history=None):
         """本地回退生成答案机制"""
         logger.info("使用本地回退机制生成答案")
         
@@ -104,10 +101,28 @@ class LLMIntegration:
         else:
             return "根据提供的上下文无法回答该问题 (使用本地回退机制)"
     
-    def _build_prompt(self, query, context):
-        """构建提示词"""
+    def _build_messages(self, query, context, chat_history=None):
+        """构建包含对话历史的消息列表"""
         context_str = "\n".join(context)
         
-        prompt = f"上下文信息：\n{context_str}\n\n用户问题：{query}\n\n请根据上下文信息回答用户的问题，不要添加任何上下文之外的信息。如果上下文没有相关信息，请回答'根据提供的上下文无法回答该问题'。"
+        # 系统消息
+        messages = [
+            {"role": "system", "content": "你是一个知识问答助手，根据提供的上下文回答用户的问题。在多轮对话中，请记住之前的交流内容。"}
+        ]
         
-        return prompt
+        # 添加对话历史（如果有），过滤掉系统消息
+        if chat_history:
+            # 只保留最近的几轮对话，避免token过多
+            recent_history = chat_history[-4:]  # 保留最近2轮（用户+助手）
+            for msg in recent_history:
+                if msg.get('role') in ['user', 'assistant']:
+                    messages.append({
+                        'role': msg.get('role'),
+                        'content': msg.get('content', '')
+                    })
+        
+        # 添加当前问题（包含上下文）
+        current_prompt = f"上下文信息：\n{context_str}\n\n用户问题：{query}\n\n请根据上下文信息回答用户的问题，不要添加任何上下文之外的信息。如果上下文没有相关信息，请回答'根据提供的上下文无法回答该问题'。"
+        messages.append({"role": "user", "content": current_prompt})
+        
+        return messages

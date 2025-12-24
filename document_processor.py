@@ -1,6 +1,8 @@
 import os
 from PyPDF2 import PdfReader
 from docx import Document
+import markdown
+from bs4 import BeautifulSoup
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from config import CHUNK_SIZE, CHUNK_OVERLAP
 
@@ -23,6 +25,10 @@ class DocumentProcessor:
             text = self._read_txt(file_path)
         elif file_extension == ".docx":
             text = self._read_docx(file_path)
+        elif file_extension == ".md":
+            text = self._read_markdown(file_path)
+        elif file_extension == ".html" or file_extension == ".htm":
+            text = self._read_html(file_path)
         else:
             raise ValueError(f"不支持的文件类型: {file_extension}")
         
@@ -61,6 +67,39 @@ class DocumentProcessor:
         for paragraph in doc.paragraphs:
             text += paragraph.text + "\n"
         return text
+    
+    def _read_markdown(self, file_path):
+        """读取Markdown文件内容"""
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                md_text = f.read()
+            # 将Markdown转换为HTML
+            html = markdown.markdown(md_text)
+            # 使用BeautifulSoup提取纯文本
+            soup = BeautifulSoup(html, 'html.parser')
+            return soup.get_text()
+        except Exception as e:
+            # 如果解析失败，直接返回原始内容
+            print(f"解析Markdown时出错: {e}")
+            with open(file_path, "r", encoding="utf-8") as f:
+                return f.read()
+    
+    def _read_html(self, file_path):
+        """读取HTML文件内容"""
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                html = f.read()
+            # 使用BeautifulSoup提取纯文本
+            soup = BeautifulSoup(html, 'html.parser')
+            # 移除脚本和样式标签
+            for script in soup(['script', 'style']):
+                script.decompose()
+            # 获取文本并清理空白
+            text = ' '.join(soup.stripped_strings)
+            return text
+        except Exception as e:
+            print(f"解析HTML时出错: {e}")
+            return "无法解析HTML文件"
     
     def _split_text(self, text):
         """将文本分割成块"""

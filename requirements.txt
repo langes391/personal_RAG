@@ -9,3 +9,5 @@ pytest
 python-dotenv
 tiktoken
 numpy
+markdown
+beautifulsoup4

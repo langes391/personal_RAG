@@ -6,6 +6,7 @@ CHUNK_OVERLAP = 200
 
 # 文件存储配置
 UPLOAD_DIR = "./uploads"  # 上传文件保存目录
+CHAT_HISTORY_DIR = "./chat_histories"  # 对话历史保存目录
 
 # 向量存储配置
 VECTOR_STORE_PATH = "./vector_store"
@@ -24,4 +25,4 @@ APP_TITLE = "个人知识库问答系统"
 APP_DESCRIPTION = "上传文档，然后提问，系统将根据文档内容回答您的问题"
 
 # 支持的文档类型
-SUPPORTED_FILE_TYPES = [".pdf", ".txt", ".docx"]
+SUPPORTED_FILE_TYPES = [".pdf", ".txt", ".docx", ".md", ".html", ".htm"]
